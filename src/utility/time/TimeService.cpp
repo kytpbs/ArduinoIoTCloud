@@ -140,6 +140,7 @@ unsigned long TimeServiceClass::getTime()
   unsigned long const current_tick = millis();
   bool const is_ntp_sync_timeout = (current_tick - _last_sync_tick) > _sync_interval_ms;
   if(!_is_rtc_configured || is_ntp_sync_timeout) {
+    /* Try to sync time from NTP or connection handler */
     sync();
   }
 
@@ -173,13 +174,13 @@ bool TimeServiceClass::sync()
     utc = getRemoteTime();
 #endif
 #ifdef HAS_LORA
-    /* Just keep incrementing stored RTC value*/
+    /* Just keep incrementing stored RTC value starting from EPOCH_AT_COMPILE_TIME */
     utc = getRTC();
 #endif
   }
 
   if(isTimeValid(utc)) {
-    DEBUG_DEBUG("TimeServiceClass::%s  Drift: %d RTC value: %u", __FUNCTION__, getRTC() - utc, utc);
+    DEBUG_DEBUG("TimeServiceClass::%s done. Drift: %d RTC value: %u", __FUNCTION__, getRTC() - utc, utc);
     setRTC(utc);
     _last_sync_tick = millis();
     _is_rtc_configured = true;
@@ -306,6 +307,7 @@ unsigned long TimeServiceClass::getRemoteTime()
         return ntp_time;
       }
     }
+    DEBUG_WARNING("TimeServiceClass::%s cannot get time from NTP, fallback on connection handler", __FUNCTION__);
 
     /* As fallback if NTP request fails try to obtain the
      * network time using the connection handler.
@@ -314,6 +316,7 @@ unsigned long TimeServiceClass::getRemoteTime()
     if(isTimeValid(connection_time)) {
       return connection_time;
     }
+    DEBUG_WARNING("TimeServiceClass::%s cannot get time from connection handler", __FUNCTION__);
   }
 
   /* Return known invalid value because we are not connected */
